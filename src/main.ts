@@ -1,9 +1,10 @@
 import './style.css';
 import { decodeAudio } from './core/audio';
-import { timestamp, toSrt } from './core/export';
+import { toSrt } from './core/export';
 import type { Transcript, TranscriptionOptions } from './core/types';
 import { validateFile } from './sources/file';
 import { WhisperTranscriber } from './transcription/client';
+import { TranscriptPlayer, isVideoFile } from './playback/transcript-player';
 
 // UI concerns stay here; the engine accepts PCM and knows nothing about files or the DOM.
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
@@ -17,8 +18,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 </header>
 <main id="main">
   <div class="page-heading">
-    <h1>Turn audio into text.</h1>
-    <p>English and Chinese transcription, right in your browser.</p>
+    <h1>Watch, read, and find every word.</h1>
+    <p>Choose a video, transcribe it on your device, and jump to any moment.</p>
   </div>
   <div class="workspace">
     <section class="input-panel" aria-labelledby="source-heading">
@@ -54,11 +55,14 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div id="empty" class="empty-state">
         <svg class="document-icon" viewBox="0 0 48 56" fill="none" aria-hidden="true"><rect x="5" y="3" width="38" height="50" rx="5" fill="white" stroke="currentColor" stroke-width="1.4"/><path d="M14 17h20M14 25h20M14 33h15M14 41h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
         <h3>A clear view of every word.</h3>
-        <p>Choose a recording, then select Transcribe.<br>Your text and timestamps will appear here.</p>
+        <p>Choose a video or audio file to begin.<br>Transcript timestamps will take you straight to the matching moment.</p>
+      </div>
+      <div id="media-preview" class="media-preview" hidden>
+        <h3 id="title" class="recording-title"></h3>
+        <video id="player" controls playsinline preload="metadata" aria-label="Source video or audio"></video>
       </div>
       <div id="result" hidden>
-        <h3 id="title" class="recording-title"></h3>
-        <audio id="player" controls aria-label="Source audio"></audio>
+        <p class="playback-hint">Select a timestamp to play from that moment. The current passage is highlighted as you watch.</p>
         <div class="exports"><button id="txt">Download text</button><button id="srt">Download SRT</button><button id="copy">Copy text</button></div>
         <div id="segments"></div>
       </div>
@@ -72,20 +76,26 @@ const engine = new WhisperTranscriber();
 const fileInput = $<HTMLInputElement>('file');
 let controller: AbortController | undefined;
 let transcript: Transcript | undefined;
-let mediaUrl: string | undefined;
 let duration = 0;
 let busy = false;
 let selectedFile: File | undefined;
+const playback = new TranscriptPlayer($<HTMLVideoElement>('player'), $('segments'), message => status(message));
 
 function selectFile(file: File | undefined): void {
   if (busy || !file) return;
   try {
     validateFile(file);
     selectedFile = file;
+    clearResult();
+    playback.load(file);
+    $('title').textContent = file.name;
+    $('media-preview').hidden = false;
+    $('empty').hidden = true;
+    $('badge').textContent = 'Ready';
     $('file-name').textContent = file.name;
     $('file-detail').textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB · Ready to transcribe`;
     $('drop-zone').classList.add('has-file');
-    status('Recording selected. Select Transcribe to begin.');
+    status(`${isVideoFile(file) ? 'Video' : 'Audio'} ready to preview. Select Transcribe to create the transcript.`);
   } catch (error) {
     status(error instanceof Error ? error.message : String(error), undefined, true);
   }
@@ -134,38 +144,14 @@ function clearResult(): void {
   transcript = undefined;
   $('empty').hidden = false;
   $('result').hidden = true;
-  const player = $<HTMLAudioElement>('player');
-  player.pause();
-  player.removeAttribute('src');
-  player.load();
-  if (mediaUrl) URL.revokeObjectURL(mediaUrl);
-  mediaUrl = undefined;
+  playback.clearTranscript();
 }
 
-function showResult(result: Transcript, file: File): void {
+function showResult(result: Transcript): void {
   transcript = result;
-  mediaUrl = URL.createObjectURL(file);
-  $<HTMLAudioElement>('player').src = mediaUrl;
-  $('title').textContent = file.name;
   $('empty').hidden = true;
   $('result').hidden = false;
-  $('segments').replaceChildren();
-
-  for (const segment of result.segments) {
-    const row = document.createElement('button');
-    row.className = 'segment';
-    const time = document.createElement('span');
-    time.textContent = timestamp(segment.start).slice(0, 8);
-    const text = document.createElement('span');
-    text.textContent = segment.text;
-    row.append(time, text);
-    row.onclick = () => {
-      const player = $<HTMLAudioElement>('player');
-      player.currentTime = segment.start;
-      void player.play().catch(() => status('Press play to start audio.'));
-    };
-    $('segments').append(row);
-  }
+  playback.setTranscript(result.segments);
   if (!result.segments.length) $('segments').textContent = result.text || 'No speech detected.';
   $<HTMLButtonElement>('srt').disabled = !result.segments.length;
 }
@@ -190,6 +176,7 @@ $('form').onsubmit = async event => {
 
   setBusy(true);
   clearResult();
+  $('empty').hidden = true;
   const operation = controller = new AbortController();
   try {
     status('Decoding and resampling audio to 16 kHz…');
@@ -205,7 +192,7 @@ $('form').onsubmit = async event => {
       throw new Error('WebGPU is unavailable. Select CPU / WebAssembly and try again.');
     }
     const result = await engine.transcribe(samples, options, p => status(p.message, p.percent));
-    showResult(result, selected);
+    showResult(result);
     status(`Complete · ${(duration / 60).toFixed(1)} min of audio · ${options.model} model`);
   } catch (error) {
     status(operation.signal.aborted
@@ -241,5 +228,5 @@ $('copy').onclick = async () => {
 
 window.addEventListener('pagehide', () => {
   engine.cancel();
-  if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+  playback.destroy();
 });

@@ -31,3 +31,7 @@ English and Chinese transcription, in your browser.
 The earlier oversized hero, numbered circles, all-caps labels and decorative waveform consumed space without helping the task. Remove them. Use blue only for actions, focus and active state; avoid tinted headline fragments, generic feature cards and gradients. The transcript is a readable document with clickable timestamp rows, not another settings card.
 
 Keep privacy and first-use download behavior visible without repeating either throughout the page. Errors explain the next step. Files and recognized text are inserted with textContent, never interpreted as markup.
+
+## Video playback
+
+A selected recording opens immediately in an HTML video player above the transcript. Keep preview playback available during inference. Timestamp rows seek and start the same media element; playback highlights the active passage without forcing the reader to scroll. Selecting a different source clears the previous transcript and releases its object URL. Audio-only input keeps compact controls.

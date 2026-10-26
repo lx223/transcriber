@@ -1,6 +1,6 @@
 # Transcriber
 
-Transcribe audio and video files in your browser with multilingual Whisper. Supports English and Chinese, timestamp seeking, and TXT/SRT export. No account, API key or transcription backend.
+Transcribe audio and video files in your browser with multilingual Whisper. Supports English and Chinese, an HTML video player, synchronized transcript highlighting, timestamp seeking, and TXT/SRT export. No account, API key or transcription backend.
 
 ## Run locally
 
@@ -12,6 +12,8 @@ npm run dev
 ```
 
 Open the URL printed by Vite, normally http://127.0.0.1:5173. Choose an audio/video file, language and model, then click **Create transcript**. Tiny is faster; Base is the default for better accuracy. CPU/WebAssembly is the compatibility default; WebGPU is opt-in and depends on browser/hardware support.
+
+Selecting a file immediately opens a local preview in the HTML video player. After transcription, click a timestamp to seek and play that passage. The active passage is highlighted as the video plays, including after seeking with the player controls. Audio-only files use compact playback controls. Choosing another file clears the previous transcript.
 
 The first run downloads model weights from Hugging Face and the inference runtime. Downloads may be tens to hundreds of megabytes and are cached by the browser where supported. Inference and audio processing happen on-device. Files and transcripts are not uploaded or saved by the app. Model downloads require network access; browser cache availability does not guarantee offline operation.
 
@@ -30,6 +32,8 @@ npm run preview
 - `src/core`: engine contracts, audio decoding/resampling, transcript exports.
 - `src/sources/file.ts`: file input validation.
 - `src/transcription`: Whisper implementation and typed Worker protocol.
+- `src/playback`: local video/audio object URLs, timestamp seeking, and transcript highlighting.
+- `src/core/timeline.ts`: active-passage selection, independent of the DOM or inference engine.
 - `src/main.ts`: UI and orchestration.
 
 The transcription engine accepts mono 16 kHz PCM and produces text plus timestamped segments. It has no knowledge of URLs, files or the UI. Future capture/downloader adapters can produce the same audio input; another engine can implement the `Transcriber` interface. Browser audio decoding and Worker execution remain browser-specific. No speculative CLI/MCP framework is included.
@@ -38,7 +42,7 @@ TypeScript keeps browser integration straightforward. Transformers.js runs ONNX 
 
 ## Limits
 
-- This version takes local files. Video URL downloading and live/tab capture are separate work.
+- This version takes local files. Direct Bilibili-link downloading is not connected. A normal webpage needs a compatible hosted download/relay service to reliably resolve and retrieve Bilibili media; GitHub Pages cannot run that service. No extension or local server is required for file transcription. Live/tab capture is separate work.
 - Browser codecs determine which containers work. Try WAV, MP3 or AAC if a file fails to decode.
 - Files are limited to 250 MB and 30 minutes. Decoding happens in memory before inference; low-memory devices may need much shorter clips.
 - The model processes overlapping 30-second windows. This is file transcription, not a live stream.
