@@ -17,6 +17,7 @@
     ]
   },
   "include": [
+    "cli",
     "src",
     "tests",
     "vite.config.ts"
