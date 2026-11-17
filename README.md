@@ -43,6 +43,8 @@ docker build -t transcriber .
 docker run --rm -v transcriber-models:/cache transcriber "<url>" > transcript.txt
 ```
 
+Once the `DOCKERHUB_USERNAME` repository variable and `DOCKERHUB_TOKEN` secret are set, every push to `main` also publishes the image to Docker Hub as `<username>/transcriber` for amd64 and arm64, so `docker run` works without building.
+
 Options: `--lang en|zh|…`, `--format txt|srt|json`, `--output <file>`, `--source auto|subtitles|whisper`, `--model tiny|base|small`, `--cookies-from-browser <browser>`, `--cookies <file>`. Run with `--help` for details. Progress goes to stderr, the transcript to stdout.
 
 - Any site yt-dlp supports works. Bilibili lists subtitles only to logged-in users, so pass cookies to get them; without cookies the CLI falls back to Whisper.
