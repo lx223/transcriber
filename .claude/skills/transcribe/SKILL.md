@@ -37,7 +37,7 @@ The transcript goes to stdout (or `-o`); progress and errors go to stderr. Write
 
 ## Things to know
 
-- Bilibili only lists subtitles to logged-in users. Without cookies the CLI still works but falls back to Whisper, which is much slower. Ask the user before reading their browser cookies.
+- Bilibili only lists subtitles to logged-in users. Without cookies the CLI skips the subtitle lookup and goes straight to Whisper, which is much slower; `-s subtitles` without cookies fails immediately. Ask the user before reading their browser cookies.
 - YouTube often blocks cloud/datacenter IPs ("Sign in to confirm you're not a bot"). That is a network restriction, not a bug; it works from a home connection or with cookies.
 - The Whisper fallback runs on CPU, roughly real time or slower for long videos with `base`. Tell the user before starting a long one, and run it in the background.
 - Site subtitles may be automatic captions, and Whisper can mishear or invent text on silence. Say which source the transcript came from (stderr reports it) when accuracy matters.

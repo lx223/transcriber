@@ -47,7 +47,7 @@ Once the `DOCKERHUB_USERNAME` repository variable and `DOCKERHUB_TOKEN` secret a
 
 Options: `--lang en|zh|…`, `--format txt|srt|json`, `--output <file>`, `--source auto|subtitles|whisper`, `--model tiny|base|small`, `--cookies-from-browser <browser>`, `--cookies <file>`. Run with `--help` for details. Progress goes to stderr, the transcript to stdout.
 
-- Any site yt-dlp supports works. Bilibili lists subtitles only to logged-in users, so pass cookies to get them; without cookies the CLI falls back to Whisper.
+- Any site yt-dlp supports works. Bilibili lists subtitles only to logged-in users, so pass cookies to get them; without cookies the CLI skips the subtitle lookup and goes straight to Whisper.
 - Whisper here does not detect the language. The fallback uses `--lang`, then the language the site reports, then Chinese for Bilibili, then English.
 - The fallback runs on CPU and has no length limit, so long videos take a while.
 - Inside Docker, `--cookies-from-browser` cannot see your browser; mount a cookies file and use `--cookies`.

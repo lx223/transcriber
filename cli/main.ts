@@ -121,6 +121,7 @@ async function main(): Promise<void> {
   check('source', values.source, ['auto', 'subtitles', 'whisper']);
   check('model', values.model, ['tiny', 'base', 'small']);
 
+  const loggedIn = Boolean(values['cookies-from-browser'] || values.cookies);
   const cookies = [
     '--js-runtimes', 'node',
     ...(values['cookies-from-browser'] ? ['--cookies-from-browser', values['cookies-from-browser']] : []),
@@ -131,17 +132,24 @@ async function main(): Promise<void> {
     log('Reading video details…');
     const info = JSON.parse(await tool('yt-dlp', [...cookies, '--no-playlist', '-J', '--skip-download', '--', url]));
     let transcript: Transcript | undefined;
-    if (values.source !== 'whisper') {
+    const isBilibili = /bilibili/i.test(info.extractor ?? '');
+    // Bilibili lists subtitles only to logged-in users, so without cookies there is nothing to look up.
+    const subtitlesNeedLogin = isBilibili && !loggedIn;
+    if (values.source === 'subtitles' && subtitlesNeedLogin) {
+      throw new Error('Bilibili only lists subtitles to logged-in users. Pass --cookies-from-browser or --cookies.');
+    }
+    if (values.source !== 'whisper' && subtitlesNeedLogin) {
+      log('Skipping subtitles: Bilibili only lists them to logged-in users (pass --cookies-from-browser to use them).');
+    } else if (values.source !== 'whisper') {
       transcript = await fromSubtitles(url, info, values.lang, cookies, dir);
       if (!transcript) {
-        const hint = cookies.length ? '' : ' Some sites, such as Bilibili, only list them when logged in: try --cookies-from-browser.';
-        if (values.source === 'subtitles') throw new Error(`No subtitles found${values.lang ? ` for "${values.lang}"` : ''}.${hint}`);
-        log(`No subtitles found, falling back to Whisper.${hint}`);
+        if (values.source === 'subtitles') throw new Error(`No subtitles found${values.lang ? ` for "${values.lang}"` : ''}.`);
+        log('No subtitles found, falling back to Whisper.');
       }
     }
     if (!transcript) {
       // Whisper here does not detect the language itself; without one it assumes English.
-      const language = values.lang ?? info.language ?? (/bilibili/i.test(info.extractor ?? '') ? 'zh' : undefined);
+      const language = values.lang ?? info.language ?? (isBilibili ? 'zh' : undefined);
       if (!language) log('Spoken language unknown, assuming English. Pass --lang if that is wrong.');
       transcript = await fromWhisper(url, language ?? 'en', values.model, cookies, dir);
     }
